@@ -7,12 +7,9 @@ data = {'passed': 0, 'failed': 0}
 
 
 def pytest_runtest_logreport(report: pytest.TestReport):
-    print(report)
     if report.when == 'call':
         print(f"本次用例执行的结果：{report.outcome}")
         data[report.outcome] += 1
-        print(data['passed'])
-        print(data['failed'])
 
 
 def pytest_collection_finish(session: pytest.Session):
@@ -34,11 +31,11 @@ def pytest_unconfigure():
     data['time_stamp'] = data['end_test'] - data['start_test']
     print(f"测试用例执行的时间{data['time_stamp']}")
 
-    formatted_str = "{:.2f}".format(data['passed'] / data['total'])
+    formatted_str = "{:.2f}".format(data['passed'] / data['total']*100)
     data['passing_rate'] = formatted_str + "%"
     assert timedelta(seconds=3) <= data['time_stamp'] <= timedelta(seconds=4)
     assert data['total'] == 3
 
-    assert data['passed'] ==2
+    assert data['passed'] == 2
     assert data['failed'] == 1
-    assert data['passing_rate']=="66.66%"
+    assert data['passing_rate']=="66.67%"
