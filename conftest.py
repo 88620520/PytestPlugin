@@ -1,91 +1,148 @@
 # conftest.py
+import smtplib
 from datetime import datetime, timedelta
+from email.header import Header
+from email.mime.text import MIMEText
+
 import requests
 import pytest
-
-from httpx import request
 
 data = {'passed': 0, 'failed': 0}
 
 
 def pytest_addoption(parser):
-    # 读取pytest.ini配置文件信息
+    # api配置（如微信机器人，qq群机器人等）
+    parser.addini('send_when',
+                  type='string', help="何时发送")
+    parser.addini('send_api',
+                  type="string", help="发送到哪里")
+
+    # 邮箱配置项名称保持与配置文件中一致
     parser.addini(
-        'send_when',
-        help="何时发送"
+        'smtp_server',
+        type='string',
+        help='SMTP服务器地址',
+        default='smtp.163.com'
     )
     parser.addini(
-        'send_api',
-        help="发送到哪里"
+        'smtp_port',
+        help='SMTP端口',
+        type="string",
+        default="465"
+    )
+    parser.addini(
+        'email_user',
+        type='string',
+        help='发件人邮箱'
+    )
+    parser.addini(
+        'email_password',
+        type='string',
+        help='邮箱授权码'
+    )
+    parser.addini(
+        'receiver_emails',
+        type='string',
+        help='收件人邮箱'
     )
 
 
 def pytest_runtest_logreport(report: pytest.TestReport):
-    # 统计测试用例执行情况
-    print(report)
+    # 统计测试通过的数量
     if report.when == 'call':
-        print(f"本次用例执行的结果：{report.outcome}")
         data[report.outcome] += 1
 
 
 def pytest_collection_finish(session: pytest.Session):
-    # 统计测试用例数量
+    # 统计测试用例总数
     data['total'] = len(session.items)
-    print(f"要执行的用例数量 {data['total']}")
 
 
 def pytest_configure(config: pytest.Config):
-    """在所有测试开始前执行"""
+    # 测试开始执行
     data['start_test'] = datetime.now()
-    print(f"\n{data['start_test']} pytest开始执行")
-    print(config.getini('send_when'))
-    print(config.getini('send_api'))
 
 
-def pytest_unconfigure():
-    """在所有测试结束后执行"""
+def pytest_unconfigure(config):
     data['end_test'] = datetime.now()
-    print(f"\n{data['end_test']} pytest结束执行")
-    # 计算时间差
     data['time_stamp'] = data['end_test'] - data['start_test']
-    print(f"测试用例执行的时间{data['time_stamp']}")
+    data['passing_rate'] = f"{data['passed'] / data['total'] * 100:.2f}%"
 
-    formatted_str = "{:.2f}".format(data['passed'] / data['total'] * 100)
-    data['passing_rate'] = formatted_str + "%"
-    # assert timedelta(seconds=3) <= data['time_stamp'] <= timedelta(seconds=4)
-    # assert data['total'] == 3
-    #
-    # assert data['passed'] ==2
-    # assert data['failed'] == 1
-    # assert data['passing_rate']=="66.67%"
+    # 根据配置决定是否发送
+    if config.getini('send_when') == 'always' or (
+            config.getini('send_when') == 'on_fail' and data['failed'] > 0
+    ):
+        send_email(config)
+        send_result(config)
 
 
-def send_result():
-    if data['send_when'] == 'on_fail' and data['failed'] == 0:
+def send_email(config: pytest.Config):
+    """发送邮件通知（修正了配置项名称）"""
+    smtp_server = config.getini("smtp_server")
+    smtp_port = int(config.getini("smtp_port"))
+    username = config.getini("email_user")  # 使用正确的配置项名称
+    password = config.getini("email_password")  # 使用正确的配置项名称
+    email_to = config.getini("receiver_emails")
+
+    # 构建邮件内容
+    html_content = f"""
+    <html>
+      <body>
+        <h2>自动化测试报告</h2>
+        <table border="1" cellpadding="5">
+          <tr><th>项目</th><th>结果</th></tr>
+          <tr><td>测试时间</td><td>{data['end_test']}</td></tr>
+          <tr><td>总用例数</td><td>{data['total']}</td></tr>
+          <tr><td>通过数</td><td style="color:green">{data['passed']}</td></tr>
+          <tr><td>失败数</td><td style="color:red">{data['failed']}</td></tr>
+          <tr><td>执行时长</td><td>{data['time_stamp']}</td></tr>
+          <tr><td>通过率</td><td>{data['passing_rate']}</td></tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    # 创建邮件对象
+    msg = MIMEText(html_content, "html", "utf-8")
+    msg["From"] = username  # 使用配置中的email_user
+    msg["To"] = email_to
+    msg["Subject"] = Header("自动化测试报告", "utf-8")  # 固定主题
+
+    # 使用SSL连接（端口465）
+    try:
+        with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+            server.login(username, password)
+            server.sendmail(
+                username,
+                email_to.split(","),  # 拆分多个收件人
+                msg.as_string()
+            )
+            print("邮件发送成功")
+    except Exception as e:
+        print(f"邮件发送失败: {str(e)}")
+
+
+def send_result(config):
+    """"Api发送信息通知"""
+    if not config.getini('send_api'):
         return
-
-    if not data['send_api']:
-        return
-
-    url = data['send_api']
 
     content = f"""
     python自动化测试结果
 
-
     测试时间：{data['end_test']}
     用例数量：{data['total']}
-    执行时常：{data['time_stamp']}
+    执行时长：{data['time_stamp']}
     测试通过：<font color='green'>{data['passed']}</font>
-    测试失败：<font color='red'>{data['passed']}</font>
-    测试通过率：{data['passing_rate']}</br>
+    测试失败：<font color='red'>{data['failed']}</font>
+    测试通过率：{data['passing_rate']}
     """
 
     try:
-        requests.post(url, json={"msgtype": "markdown",
-                                "markdown": {"content": content}})
-
-    except Exception:
-        pass
-
-
+        requests.post(
+            config.getini('send_api'),
+            json={"msgtype": "markdown", "markdown": {"content": content}}
+        )
+        print("API结果发送成功")
+    except Exception as e:
+        print(f"API发送失败: {str(e)}")
