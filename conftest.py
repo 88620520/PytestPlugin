@@ -66,14 +66,18 @@ def pytest_configure(config: pytest.Config):
 def pytest_unconfigure(config):
     data['end_test'] = datetime.now()
     data['time_stamp'] = data['end_test'] - data['start_test']
-    data['passing_rate'] = f"{data['passed'] / data['total'] * 100:.2f}%"
+    if data and data['total'] > 0:  # 添加保护条件
+        data['passing_rate'] = f"{data['passed'] / data['total'] * 100:.2f}%"
+    else:
+        data['passing_rate'] = "0.00%"
 
-    # 根据配置决定是否发送
-    if config.getini('send_when') == 'always' or (
-            config.getini('send_when') == 'on_fail' and data['failed'] > 0
-    ):
-        send_email(config)
-        send_result(config)
+        # 根据配置决定是否发送
+    if config.getini('send_when') == 'on_fail' and data['failed'] == 0:
+       return
+    if not config.getini('send_api'):
+       return
+    send_email(config)
+    send_result(config)
 
 
 def send_email(config: pytest.Config):

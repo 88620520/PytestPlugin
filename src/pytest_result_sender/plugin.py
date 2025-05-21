@@ -13,9 +13,11 @@ data = {'passed': 0, 'failed': 0}
 def pytest_addoption(parser):
     # api配置（如微信机器人，qq群机器人等）
     parser.addini('send_when',
-                  type='string', help="何时发送")
+                  type='string',
+                  help="何时发送")
     parser.addini('send_api',
-                  type="string", help="发送到哪里")
+                  type="string",
+                  help="发送到哪里")
 
     # 邮箱配置项名称保持与配置文件中一致
     parser.addini(
@@ -66,14 +68,20 @@ def pytest_configure(config: pytest.Config):
 def pytest_unconfigure(config):
     data['end_test'] = datetime.now()
     data['time_stamp'] = data['end_test'] - data['start_test']
-    data['passing_rate'] = f"{data['passed'] / data['total'] * 100:.2f}%"
+    if data and data['total'] > 0:  # 添加保护条件
+        data['passing_rate'] = f"{data['passed'] / data['total'] * 100:.2f}%"
+    else:
+        data['passing_rate'] = "0.00%"
 
     # 根据配置决定是否发送
-    if config.getini('send_when') == 'always' or (
-            config.getini('send_when') == 'on_fail' and data['failed'] > 0
-    ):
-        send_email(config)
-        send_result(config)
+    if config.getini('send_when') == 'on_fail' and data['failed'] == 0:
+        return
+    if not config.getini('send_api'):
+        return
+    send_email(config)
+    send_result(config)
+
+
 
 
 def send_email(config: pytest.Config):
@@ -118,6 +126,7 @@ def send_email(config: pytest.Config):
                 msg.as_string()
             )
             print("邮件发送成功")
+            data['email_done']=1
     except Exception as e:
         print(f"邮件发送失败: {str(e)}")
 
@@ -144,5 +153,6 @@ def send_result(config):
             json={"msgtype": "markdown", "markdown": {"content": content}}
         )
         print("API结果发送成功")
+        data['api_done'] = 1
     except Exception as e:
         print(f"API发送失败: {str(e)}")
