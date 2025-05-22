@@ -1,52 +1,26 @@
 # conftest.py
-import smtplib
-from datetime import datetime, timedelta
+from datetime import datetime
 from email.header import Header
 from email.mime.text import MIMEText
+import smtplib
 
-import requests
 import pytest
+import requests
 
 data = {'passed': 0, 'failed': 0}
 
 
 def pytest_addoption(parser):
     # api配置（如微信机器人，qq群机器人等）
-    parser.addini('send_when',
-                  type='string',
-                  help="何时发送")
-    parser.addini('send_api',
-                  type="string",
-                  help="发送到哪里")
+    parser.addini('send_when', type='string', help="何时发送")
+    parser.addini('send_api', type="string", help="发送到哪里")
 
     # 邮箱配置项名称保持与配置文件中一致
-    parser.addini(
-        'smtp_server',
-        type='string',
-        help='SMTP服务器地址',
-        default='smtp.163.com'
-    )
-    parser.addini(
-        'smtp_port',
-        help='SMTP端口',
-        type="string",
-        default="465"
-    )
-    parser.addini(
-        'email_user',
-        type='string',
-        help='发件人邮箱'
-    )
-    parser.addini(
-        'email_password',
-        type='string',
-        help='邮箱授权码'
-    )
-    parser.addini(
-        'receiver_emails',
-        type='string',
-        help='收件人邮箱'
-    )
+    parser.addini('smtp_server', type='string', help='SMTP服务器地址', default='smtp.163.com')
+    parser.addini('smtp_port', help='SMTP端口', type="string", default="465")
+    parser.addini('email_user', type='string', help='发件人邮箱')
+    parser.addini('email_password', type='string', help='邮箱授权码')
+    parser.addini('receiver_emails', type='string', help='收件人邮箱')
 
 
 def pytest_runtest_logreport(report: pytest.TestReport):
@@ -58,14 +32,18 @@ def pytest_runtest_logreport(report: pytest.TestReport):
 def pytest_collection_finish(session: pytest.Session):
     # 统计测试用例总数
     data['total'] = len(session.items)
+    print(f"需要执行的测试用例数量{data['total']}")
 
 
 def pytest_configure(config: pytest.Config):
     # 测试开始执行
     data['start_test'] = datetime.now()
+    print(f"测试开始执行{datetime.now()}")
+
 
 
 def pytest_unconfigure(config):
+    print(f"测试结束{datetime.now()}")
     data['end_test'] = datetime.now()
     data['time_stamp'] = data['end_test'] - data['start_test']
     if data and data['total'] > 0:  # 添加保护条件
@@ -80,8 +58,6 @@ def pytest_unconfigure(config):
         return
     send_email(config)
     send_result(config)
-
-
 
 
 def send_email(config: pytest.Config):
@@ -120,19 +96,15 @@ def send_email(config: pytest.Config):
     try:
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
             server.login(username, password)
-            server.sendmail(
-                username,
-                email_to.split(","),  # 拆分多个收件人
-                msg.as_string()
-            )
+            server.sendmail(username, email_to.split(","), msg.as_string())  # 拆分多个收件人
             print("邮件发送成功")
-            data['email_done']=1
+            data['email_done'] = 1
     except Exception as e:
         print(f"邮件发送失败: {str(e)}")
 
 
 def send_result(config):
-    """"Api发送信息通知"""
+    """ "Api发送信息通知"""
     if not config.getini('send_api'):
         return
 
@@ -148,10 +120,7 @@ def send_result(config):
     """
 
     try:
-        requests.post(
-            config.getini('send_api'),
-            json={"msgtype": "markdown", "markdown": {"content": content}}
-        )
+        requests.post(config.getini('send_api'), json={"msgtype": "markdown", "markdown": {"content": content}})
         print("API结果发送成功")
         data['api_done'] = 1
     except Exception as e:
