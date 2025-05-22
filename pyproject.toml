@@ -15,7 +15,7 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [project.entry-points.pytest11]
-result_log = "pytest_result_sender.plugin"
+result_log = "pytest_result_sender_jms.plugin"
 
 # ========= 代码格式化配置 =========
 [tool.black]
@@ -29,7 +29,7 @@ profile = "black"
 multi_line_output = 3
 line_length = 120
 force_sort_within_sections = true
-known_first_party = ["pytest_result_sender"]
+known_first_party = ["pytest_result_sender_jms"]
 src_paths = ["src", "tests"]
 
 # ========= 代码质量检查 =========
