@@ -40,4 +40,29 @@ package-dir = "src"  # 指定源代码目录为src
 5.PDM扩展配置 ([tool.pdm])
 [tool.pdm]
 distribution = true  # 允许生成可分发的包
- 
+ # 使用教程：
+一、下载插件
+pip install pytest-result-sender-jms
+
+二、创建配置文件
+
+在项目的根目录下创建配置文件pytest.ini,配置文件内容如下
+[pytest]
+# Api服务器配置
+# 何时发送，always: 总是发送，on_fail: 失败时发送
+send_when = always
+# 发送API地址 ，你需要发送信息的接口，例如微信机器人
+send_api = https://baidu.com
+# 邮箱服务器配置，发送者的邮箱的配置，这里用的是163，具体自行百度
+smtp_server = smtp.163.com
+# 端口
+smtp_port = 465
+# 发送邮箱的用户，更改为你需要发送邮箱的用户
+email_user = 183...@163.com
+# 邮箱授权码，具体获取方法自行百度
+email_password = ....
+# 接收者邮箱，多个用，隔开
+receiver_emails = 2922...@qq.com
+
+三、启动项目
+控制台输入pytest -v
