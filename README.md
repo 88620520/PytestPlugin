@@ -47,6 +47,7 @@ pip install pytest-result-sender-jms
 二、创建配置文件
 
 在项目的根目录下创建配置文件pytest.ini,配置文件内容如下
+
 [pytest]
 # Api服务器配置
 # 何时发送，always: 总是发送，on_fail: 失败时发送
